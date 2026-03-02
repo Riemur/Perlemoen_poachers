@@ -1,3 +1,7 @@
+#library(dplyr) 
+#library(ggplot2) 
+#library(purrr)
+
 perlemoen_fishery <- function(t, state, parms) {
   with(as.list(c(state, parms)), {
     
@@ -14,7 +18,7 @@ perlemoen_fishery <- function(t, state, parms) {
       Hc - Hd
     
     #Social dynamics 
-    dC <- a * C * (D) - #*(1-S/K), could be fun
+    dC <- a * C * (D) * (S/K) -  #adding *(1-S/K) could be fun, environmental activism?
           i * C * (D) -
           b * C * (eD / (eC + 1e-8))
     
@@ -28,7 +32,7 @@ parms <- c(
   A = 10, #allee threshold (should be around 10% of K)
   eC = 0.002, #effort of cooperators (per cooperator)
   eD = 0.01, #effort of poachers (per defector)
-  a = 0.06, #Social pressure (to conform)
+  a = 0.09, #Social pressure (to conform)
   i = 0.061, #intimidation (social pressure to defect)
   b = 0.09, #temptation to defect
   N = 100 #Total amount of fishers
@@ -36,8 +40,8 @@ parms <- c(
 
 # Initial state
 state <- c(
-  C = 99,
-  S = 50
+  C = 55,
+  S = 80
 )
 
 # Time
@@ -74,3 +78,32 @@ ggplot(out_long, aes(x = time, y = Value, color = Variable)) +
     legend.position = "top",
     plot.title = element_text(face = "bold")
   )
+
+
+#nullcline plotting
+
+C_seq <- seq(0, 100, length.out = 200)
+S_seq <- seq(0, 100, length.out = 200)
+grid <- expand.grid(C = C_seq, S = S_seq) 
+
+null <- grid %>%
+  mutate(
+    derivs = pmap(
+      list(C, S),
+      ~ perlemoen_fishery(
+        t = 0,
+        state = c(C = ..1, S = ..2),
+        parms = parms
+      )[[1]]
+    ),
+    dC = map_dbl(derivs, 1),
+    dS = map_dbl(derivs, 2)
+  )
+
+ggplot(null, aes(x = C, y = S)) + 
+  geom_contour(aes(z = dC), breaks = 0, color = "red", size = 1) + 
+  geom_contour(aes(z = dS), breaks = 0, color = "blue", size = 1) + 
+  theme_minimal(base_size = 14) + 
+  labs( x = "Cooperators (C)", y = "Stock (S)", 
+        title = "Nullclines of the perlemoen fishery model", 
+        subtitle = "Red: dC = 0 | Blue: dS = 0" )
